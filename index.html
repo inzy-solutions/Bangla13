@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bangla Speech to Text Machine</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Kalpurush&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #006A4E 0%, #F42A41 100%);
+            min-height: 100vh;
+            color: white;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            position: relative;
+        }
+
+        .bg-pattern {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0.1;
+            z-index: -1;
+            background-image: radial-gradient(circle at 25% 25%, #F42A41 2px, transparent 2px),
+                              radial-gradient(circle at 75% 75%, #006A4E 2px, transparent 2px);
+            background-size: 50px 50px;
+        }
+
+        .title {
+            font-family: 'Orbitron', monospace;
+            font-size: clamp(1.8rem, 4vw, 3.5rem);
+            font-weight: 900;
+            text-align: center;
+            margin-bottom: 40px;
+            color: #FFFFFF;
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.8),
+                         0 0 40px rgba(255, 255, 255, 0.6),
+                         0 0 80px rgba(255, 255, 255, 0.4);
+            line-height: 1.2;
+            animation: titleBlink 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes titleBlink {
+            0% {
+                color: #FFFFFF;
+                text-shadow: 0 0 20px rgba(255, 255, 255, 0.8),
+                             0 0 40px rgba(255, 255, 255, 0.6),
+                             0 0 80px rgba(255, 255, 255, 0.4);
+            }
+            100% {
+                color: #F8F8FF;
+                text-shadow: 0 0 30px rgba(255, 255, 255, 1),
+                             0 0 60px rgba(255, 255, 255, 0.8),
+                             0 0 100px rgba(255, 255, 255, 0.6);
+            }
+        }
+
+        .main-panel {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            border-radius: 25px;
+            padding: 40px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .main-panel::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.05), transparent);
+            animation: shimmer 3s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+            100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+        }
+
+        .recorder-section {
+            text-align: center;
+            margin-bottom: 40px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .recording-indicator {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            margin: 0 auto 30px;
+            position: relative;
+            background: linear-gradient(45deg, #006A4E, #F42A41);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 30px rgba(255, 255, 255, 0.2);
+        }
+
+        .recording-indicator.recording {
+            animation: pulse 1.5s infinite;
+            box-shadow: 0 0 50px rgba(244, 42, 65, 0.7);
+        }
+
+        .recording-indicator.listening {
+            animation: pulse 1.5s infinite;
+            box-shadow: 0 0 50px rgba(255, 215, 0, 0.7);
+            background: linear-gradient(45deg, #FFD700, #FFA500);
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .mic-icon {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            color: #006A4E;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .recording-indicator.recording .mic-icon {
+            background: #F42A41;
+            color: white;
+        }
+
+        .recording-indicator.listening .mic-icon {
+            background: #FFD700;
+            color: #333;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .control-btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 50px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            min-width: 120px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .control-btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            transition: width 0.6s, height 0.6s;
+            transform: translate(-50%, -50%);
+        }
+
+        .control-btn:active::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        .record-btn {
+            background: linear-gradient(45deg, #F42A41, #FF6B6B);
+            color: white;
+            box-shadow: 0 5px 15px rgba(244, 42, 65, 0.4);
+        }
+
+        .record-btn:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px rgba(244, 42, 65, 0.6);
+        }
+
+        .record-btn:disabled {
+            background: linear-gradient(45deg, #555, #777);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .pause-btn {
+            background: linear-gradient(45deg, #FFD700, #FFA500);
+            color: #333;
+            box-shadow: 0 5px 15px rgba(255, 215, 0, 0.4);
+        }
+
+        .pause-btn:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px rgba(255, 215, 0, 0.6);
+        }
+
+        .stop-btn {
+            background: linear-gradient(45deg, #006A4E, #4CAF50);
+            color: white;
+            box-shadow: 0 5px 15px rgba(0, 106, 78, 0.4);
+        }
+
+        .stop-btn:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px rgba(0, 106, 78, 0.6);
+        }
+
+        .status {
+            text-align: center;
+            font-size: 18px;
+            margin-bottom: 30px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            font-weight: 500;
+            backdrop-filter: blur(10px);
+        }
+
+        .text-section {
+            margin-top: 30px;
+        }
+
+        .text-display {
+            width: 100%;
+            min-height: 220px;
+            padding: 25px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 15px;
+            background: rgba(0, 0, 0, 0.85);
+            color: #FFFFFF;
+            font-family: 'Kalpurush', 'SolaimanLipi', Arial, sans-serif;
+            font-size: 19px;
+            line-height: 1.7;
+            resize: vertical;
+            backdrop-filter: blur(10px);
+            box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.5);
+            transition: all 0.3s ease;
+        }
+
+        .text-display:focus {
+            outline: none;
+            border-color: #F42A41;
+            box-shadow: 0 0 20px rgba(244, 42, 65, 0.3),
+                        inset 0 2px 10px rgba(0, 0, 0, 0.5);
+            background: rgba(0, 0, 0, 0.9);
+        }
+
+        .text-display::placeholder {
+            color: rgba(255, 255, 255, 0.6);
+            font-style: italic;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .action-btn {
+            padding: 14px 28px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            min-width: 140px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .action-btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            transition: width 0.6s, height 0.6s;
+            transform: translate(-50%, -50%);
+        }
+
+        .action-btn:active::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        .copy-btn {
+            background: linear-gradient(45deg, #006A4E, #4CAF50);
+            color: white;
+            box-shadow: 0 5px 15px rgba(0, 106, 78, 0.4);
+        }
+
+        .copy-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 106, 78, 0.6);
+        }
+
+        .copy-btn::after {
+            content: '✂️ Copy Text';
+        }
+
+        .copy-btn.copied::after {
+            content: '✅ Copied!';
+        }
+
+        .clear-btn {
+            background: linear-gradient(45deg, #F42A41, #FF6B6B);
+            color: white;
+            box-shadow: 0 5px 15px rgba(244, 42, 65, 0.4);
+        }
+
+        .clear-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(244, 42, 65, 0.6);
+        }
+
+        .clear-btn::after {
+            content: '🗑️ Clear Text';
+        }
+
+        .clear-btn.cleared::after {
+            content: '✅ Cleared!';
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 4px solid #F42A41;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error-message {
+            display: none;
+            background: rgba(244, 42, 65, 0.15);
+            border: 1px solid #F42A41;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 15px 0;
+            color: #F42A41;
+            text-align: center;
+            backdrop-filter: blur(10px);
+        }
+
+        .error-message.active {
+            display: block;
+        }
+
+        .interim-text {
+            opacity: 0.7;
+            font-style: italic;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+            
+            .main-panel {
+                padding: 25px;
+            }
+            
+            .title {
+                font-size: clamp(1.5rem, 6vw, 2.8rem);
+            }
+            
+            .controls {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .control-btn {
+                width: 85%;
+                max-width: 220px;
+            }
+
+            .button-group {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .action-btn {
+                width: 85%;
+                max-width: 220px;
+            }
+
+            .recording-indicator {
+                width: 180px;
+                height: 180px;
+            }
+
+            .mic-icon {
+                width: 70px;
+                height: 70px;
+                font-size: 35px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .title {
+                font-size: clamp(1.2rem, 8vw, 2.2rem);
+                margin-bottom: 30px;
+            }
+            
+            .text-display {
+                min-height: 180px;
+                font-size: 17px;
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-pattern"></div>
+    <div class="container">
+        <h1 class="title">
+            Bangla Speech to Text Machine<br>
+            by Lincoln for Dr. Col. Aminul Islam<br>
+            and Dr. Nargis Ara Begum
+        </h1>
+        
+        <div class="main-panel">
+            <div class="recorder-section">
+                <div class="recording-indicator" id="recordingIndicator">
+                    <div class="mic-icon">🎤</div>
+                </div>
+                
+                <div class="controls">
+                    <button class="control-btn record-btn" id="recordBtn">Start Recording</button>
+                    <button class="control-btn pause-btn" id="pauseBtn" disabled>Pause</button>
+                    <button class="control-btn stop-btn" id="stopBtn" disabled>Stop</button>
+                </div>
+                
+                <div class="status" id="status">Ready to record. Click "Start Recording" to begin.</div>
+                
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <p>Processing speech recognition...</p>
+                </div>
+                
+                <div class="error-message" id="errorMessage"></div>
+            </div>
+            
+            <div class="text-section">
+                <textarea class="text-display" id="textDisplay" placeholder="Your spoken Bangla text will appear here in bright contrast..." readonly></textarea>
+                <div class="button-group">
+                    <button class="action-btn copy-btn" id="copyBtn"></button>
+                    <button class="action-btn clear-btn" id="clearBtn"></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class BanglaSpeechToText {
+            constructor() {
+                this.recognition = null;
+                this.isRecording = false;
+                this.finalTranscript = '';
+                this.currentInterimTranscript = '';
+                this.allFinalTranscript = '';
+                this.debounceTimer = null;
+                
+                this.recordBtn = document.getElementById('recordBtn');
+                this.pauseBtn = document.getElementById('pauseBtn');
+                this.stopBtn = document.getElementById('stopBtn');
+                this.status = document.getElementById('status');
+                this.textDisplay = document.getElementById('textDisplay');
+                this.copyBtn = document.getElementById('copyBtn');
+                this.clearBtn = document.getElementById('clearBtn');
+                this.recordingIndicator = document.getElementById('recordingIndicator');
+                this.loading = document.getElementById('loading');
+                this.errorMessage = document.getElementById('errorMessage');
+                
+                this.initializeSpeechRecognition();
+                this.initializeEventListeners();
+                this.optimizePerformance();
+            }
+            
+            initializeSpeechRecognition() {
+                // Check for Web Speech API support
+                if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+                    this.showError('Speech recognition is not supported in this browser. Please use Chrome, Edge, or Safari.');
+                    return;
+                }
+                
+                // Initialize speech recognition with optimized settings
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                this.recognition = new SpeechRecognition();
+                
+                // Configure recognition settings for optimal Bangla performance
+                this.recognition.lang = 'bn-BD';
+                this.recognition.continuous = true;
+                this.recognition.interimResults = true;
+                this.recognition.maxAlternatives = 1;
+                
+                // Event handlers with enhanced performance
+                this.recognition.onstart = () => {
+                    this.isRecording = true;
+                    this.updateUI();
+                    this.updateStatus('Listening... Speak clearly in Bangla');
+                    this.recordingIndicator.classList.add('listening');
+                };
+                
+                this.recognition.onresult = (event) => {
+                    this.handleSpeechResult(event);
+                };
+                
+                this.recognition.onend = () => {
+                    this.isRecording = false;
+                    this.updateUI();
+                    this.recordingIndicator.classList.remove('listening');
+                    this.currentInterimTranscript = '';
+                    this.displayTranscript();
+                    this.updateStatus('Recognition stopped. Click "Start Recording" to continue.');
+                };
+                
+                this.recognition.onerror = (event) => {
+                    this.handleRecognitionError(event);
+                };
+                
+                this.updateStatus('Speech recognition initialized successfully. Ready to record in Bangla.');
+            }
+            
+            handleSpeechResult(event) {
+                let interimTranscript = '';
+                let latestFinalTranscript = '';
+                
+                // Process results efficiently
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const transcript = event.results[i][0].transcript;
+                    
+                    if (event.results[i].isFinal) {
+                        latestFinalTranscript += transcript + ' ';
+                    } else {
+                        interimTranscript += transcript;
+                    }
+                }
+                
+                // Update final transcript only when new content is available
+                if (latestFinalTranscript) {
+                    this.allFinalTranscript += latestFinalTranscript;
+                }
+                
+                this.currentInterimTranscript = interimTranscript;
+                
+                // Use debounced display update for better performance
+                this.debouncedDisplayUpdate();
+            }
+            
+            handleRecognitionError(event) {
+                this.isRecording = false;
+                this.updateUI();
+                this.recordingIndicator.classList.remove('listening');
+                
+                const errorMessages = {
+                    'network': 'Network connectivity issue. Please check your internet connection.',
+                    'not-allowed': 'Microphone access denied. Please allow microphone permissions and try again.',
+                    'no-speech': 'No speech detected. Please speak louder and more clearly.',
+                    'audio-capture': 'Audio capture failed. Please check your microphone connection.',
+                    'language-not-supported': 'Bangla language support may be limited. The system will attempt recognition.',
+                    'service-not-allowed': 'Speech recognition service access denied.',
+                    'aborted': 'Recognition was aborted. You can start recording again.',
+                    'bad-grammar': 'Speech recognition grammar error. Please try again.'
+                };
+                
+                const errorMessage = errorMessages[event.error] || `Recognition error: ${event.error}`;
+                this.showError(errorMessage);
+            }
+            
+            debouncedDisplayUpdate() {
+                clearTimeout(this.debounceTimer);
+                this.debounceTimer = setTimeout(() => {
+                    this.displayTranscript();
+                }, 100);
+            }
+            
+            initializeEventListeners() {
+                this.recordBtn.addEventListener('click', () => this.startRecording());
+                this.stopBtn.addEventListener('click', () => this.stopRecording());
+                this.copyBtn.addEventListener('click', () => this.copyText());
+                this.clearBtn.addEventListener('click', () => this.clearText());
+                
+                // Remove pause functionality as Web Speech API doesn't support pause/resume reliably
+                this.pauseBtn.style.display = 'none';
+                
+                // Add keyboard shortcuts for enhanced user experience
+                document.addEventListener('keydown', (event) => {
+                    if (event.ctrlKey || event.metaKey) {
+                        switch(event.key) {
+                            case 'r':
+                                event.preventDefault();
+                                if (!this.isRecording) this.startRecording();
+                                break;
+                            case 's':
+                                event.preventDefault();
+                                if (this.isRecording) this.stopRecording();
+                                break;
+                            case 'c':
+                                if (!this.textDisplay.value) {
+                                    event.preventDefault();
+                                    this.copyText();
+                                }
+                                break;
+                            case 'd':
+                                event.preventDefault();
+                                this.clearText();
+                                break;
+                        }
+                    }
+                });
+            }
+            
+            optimizePerformance() {
+                // Optimize text display rendering
+                this.textDisplay.style.willChange = 'contents';
+                
+                // Preload fonts to prevent layout shifts
+                const fontPreload = document.createElement('link');
+                fontPreload.rel = 'preload';
+                fontPreload.href = 'https://fonts.googleapis.com/css2?family=Kalpurush&display=swap';
+                fontPreload.as = 'style';
+                document.head.appendChild(fontPreload);
+            }
+            
+            startRecording() {
+                if (this.recognition && !this.isRecording) {
+                    this.hideError();
+                    
+                    try {
+                        this.recognition.start();
+                    } catch (error) {
+                        this.showError('Could not start speech recognition. Please ensure microphone access is granted and try again.');
+                        console.error('Recognition start error:', error);
+                    }
+                }
+            }
+            
+            stopRecording() {
+                if (this.recognition && this.isRecording) {
+                    this.recognition.stop();
+                }
+            }
+            
+            displayTranscript() {
+                // Efficiently update display text
+                const displayText = this.allFinalTranscript + this.currentInterimTranscript;
+                
+                if (this.textDisplay.value !== displayText) {
+                    this.textDisplay.value = displayText;
+                    
+                    // Smart scroll management
+                    if (this.textDisplay.scrollHeight > this.textDisplay.clientHeight) {
+                        this.textDisplay.scrollTop = this.textDisplay.scrollHeight;
+                    }
+                }
+            }
+            
+            copyText() {
+                const text = this.allFinalTranscript.trim();
+                if (text) {
+                    // Use modern clipboard API with fallback
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        navigator.clipboard.writeText(text).then(() => {
+                            this.showCopyFeedback();
+                        }).catch(() => {
+                            this.fallbackCopy(text);
+                        });
+                    } else {
+                        this.fallbackCopy(text);
+                    }
+                } else {
+                    this.showError('No text available to copy. Please record some speech first.');
+                }
+            }
+            
+            fallbackCopy(text) {
+                // Fallback copy method for older browsers
+                const tempTextArea = document.createElement('textarea');
+                tempTextArea.value = text;
+                tempTextArea.style.position = 'fixed';
+                tempTextArea.style.opacity = '0';
+                document.body.appendChild(tempTextArea);
+                tempTextArea.select();
+                
+                try {
+                    document.execCommand('copy');
+                    this.showCopyFeedback();
+                } catch (error) {
+                    this.showError('Copy operation failed. Please manually select and copy the text.');
+                }
+                
+                document.body.removeChild(tempTextArea);
+            }
+            
+            showCopyFeedback() {
+                this.copyBtn.classList.add('copied');
+                setTimeout(() => {
+                    this.copyBtn.classList.remove('copied');
+                }, 2000);
+            }
+            
+            clearText() {
+                this.allFinalTranscript = '';
+                this.currentInterimTranscript = '';
+                this.textDisplay.value = '';
+                
+                this.clearBtn.classList.add('cleared');
+                setTimeout(() => {
+                    this.clearBtn.classList.remove('cleared');
+                }, 2000);
+                
+                this.updateStatus('Text cleared successfully. Ready to record new speech.');
+                this.hideError();
+            }
+            
+            updateUI() {
+                // Efficient UI updates with minimal DOM manipulation
+                this.recordBtn.disabled = this.isRecording;
+                this.stopBtn.disabled = !this.isRecording;
+                
+                if (this.isRecording) {
+                    this.recordBtn.textContent = 'Recording...';
+                    this.recordingIndicator.classList.add('recording');
+                } else {
+                    this.recordBtn.textContent = 'Start Recording';
+                    this.recordingIndicator.classList.remove('recording');
+                }
+            }
+            
+            updateStatus(message) {
+                if (this.status.textContent !== message) {
+                    this.status.textContent = message;
+                }
+                this.hideError();
+            }
+            
+            showError(message) {
+                this.errorMessage.textContent = message;
+                this.errorMessage.classList.add('active');
+                console.error('Speech Recognition Error:', message);
+                
+                // Auto-hide error after 5 seconds
+                setTimeout(() => {
+                    this.hideError();
+                }, 5000);
+            }
+            
+            hideError() {
+                this.errorMessage.classList.remove('active');
+            }
+        }
+        
+        // Initialize application with error handling
+        document.addEventListener('DOMContentLoaded', () => {
+            try {
+                new BanglaSpeechToText();
+            } catch (error) {
+                console.error('Application initialization failed:', error);
+                document.getElementById('errorMessage').textContent = 'Application failed to initialize. Please refresh the page.';
+                document.getElementById('errorMessage').classList.add('active');
+            }
+        });
+    </script>
+</body>
+</html>
